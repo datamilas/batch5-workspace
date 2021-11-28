@@ -59,7 +59,7 @@ def separate_train_and_test_set(last_period_, training_data_):
     
     return X_train, y_train, X_last_period
 
-def prepare_for_prediction(series_, number_of_periods_ahead, num_periods_lagged, num_periods_diffed, weekday, month, rolling, holidays, target):
+def prepare_for_prediction(series_, number_of_periods_ahead, lags, num_periods_lagged, num_periods_diffed, hour, weekday, month, rolling, holidays, target):
     
     """ 
     Wrapper to go from the original series to X_train, y_train, X_last_period 
@@ -72,8 +72,10 @@ def prepare_for_prediction(series_, number_of_periods_ahead, num_periods_lagged,
     
     # build the features 
     data_with_target_and_features = build_some_features(data_with_target, target,
+                                                        lags=lags,
                                                         num_periods_lagged=num_periods_lagged,
                                                        num_periods_diffed=num_periods_diffed,
+                                                       hour=hour,
                                                        weekday=weekday,
                                                        month=month,
                                                        rolling=rolling,
@@ -89,12 +91,14 @@ def prepare_for_prediction(series_, number_of_periods_ahead, num_periods_lagged,
     # return ALL OF THE THINGS! (well, actually just the ones we need)
     return X_train, y_train, X_last_period 
 
-def predict_period_n(series_, model, number_of_periods_ahead, num_periods_lagged, num_periods_diffed, weekday, month, rolling, holidays, target): 
+def predict_period_n(series_, model, number_of_periods_ahead, lags, num_periods_lagged, num_periods_diffed, hour, weekday, month, rolling, holidays, target): 
     
         X_train, y_train, X_last_period = prepare_for_prediction(series_, 
                                                              number_of_periods_ahead, 
+                                                                 lags,
                                                              num_periods_lagged,
                                                              num_periods_diffed,
+                                                             hour,
                                                              weekday,
                                                              month,
                                                              rolling,
@@ -105,15 +109,17 @@ def predict_period_n(series_, model, number_of_periods_ahead, num_periods_lagged
         model.fit(X_train, y_train)
         return model.predict(X_last_period.values.reshape(1, -1))
     
-def predict_n_periods(series_, n_periods, model, num_periods_lagged, num_periods_diffed=0, weekday=False, month=False,rolling=[], holidays=False, target="customers"): 
+def predict_n_periods(series_, n_periods, model, lags, num_periods_lagged, num_periods_diffed=0, hour=True, weekday=False, month=False,rolling=[], holidays=False, target="price"): 
     predictions = []
 
     for period_ahead in tqdm(range(1, n_periods+1)):
         pred = predict_period_n(series_=series_, 
                                 model=model, 
                                 number_of_periods_ahead=period_ahead, 
+                                lags = lags,
                                 num_periods_lagged=num_periods_lagged,
                                 num_periods_diffed=num_periods_diffed,
+                                hour=hour,
                                 weekday=weekday,
                                 month=month,
                                 rolling=rolling,
@@ -124,7 +130,7 @@ def predict_n_periods(series_, n_periods, model, num_periods_lagged, num_periods
         
     return predictions 
 
-def build_some_features(df_, target, num_periods_lagged=1, num_periods_diffed=0, weekday=False, month=False, rolling=[], holidays=False): 
+def build_some_features(df_, target, num_periods_lagged=1, lags = [], num_periods_diffed=0, hour=False, weekday=False, month=False, rolling=[], holidays=False): 
     """
     Builds some features by calculating differences between periods  
     """
@@ -136,6 +142,12 @@ def build_some_features(df_, target, num_periods_lagged=1, num_periods_diffed=0,
         # make a new feature, with the lags in the observed values column
         df_['lagged_%s' % str(i)] = df_[target].shift(i)
         
+        
+     # for a few values, get the lags  
+    for i in lags:
+        # make a new feature, with the lags in the observed values column
+        df_['lagged_%s' % str(i)] = df_[target].shift(i)
+        
     # for a few values, get the diffs  
     for i in range(1, num_periods_diffed+1):
         # make a new feature, with the lags in the observed values column
@@ -143,6 +155,10 @@ def build_some_features(df_, target, num_periods_lagged=1, num_periods_diffed=0,
     
     for stat in rolling:
         df_['rolling_%s'%str(stat)] = df_[target].rolling('7D').aggregate(stat)
+    
+    if hour == True:
+        df_['sin_hour'] = np.sin(2*np.pi*df_.index.hour/7)
+        df_['cos_hour'] = np.cos(2*np.pi*df_.index.hour/24)
         
     if weekday == True:
         df_['sin_weekday'] = np.sin(2*np.pi*df_.index.weekday/7)
