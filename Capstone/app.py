@@ -16,7 +16,7 @@ from playhouse.db_url import connect
 
 
 
-threshold = 0.6
+threshold = 0.5
 
 
 
@@ -64,6 +64,7 @@ with open('dtypes.pickle', 'rb') as fh:
 
 app = Flask(__name__)
 
+app.config['JSON_SORT_KEYS'] = False
 
 valid_columns = {
         "patient_id",
@@ -255,54 +256,6 @@ def prepare_data(data, columns):
 
 
 
-
-    #is patient insured
-    data.payer_code = data.payer_code.astype(str)
-    payer_codes = ['MC','HM','BC','MD','PO','OG','CP','CM','DM','UN','SI','CH','OT','WC','MP','FR']
-    check_categorical_data(data, "payer_code", payer_codes)
-    data["isInsured"] = data.payer_code.replace(payer_codes, True)
-    data["isInsured"] = data.isInsured.replace("SP", False)
-
-
-
-
-
-    #keep only common values for medical_specialty set others as "Other"
-    data.medical_specialty  = data.medical_specialty.astype(str)
-    data.medical_specialty = data.medical_specialty.replace('PhysicianNotFound', np.nan)
-    column_name = "medical_specialty"
-    common_categories = ['InternalMedicine',
-            'Emergency/Trauma',
-            'Family/GeneralPractice',
-            'Cardiology',
-            'Surgery-General',
-            'Nephrology',
-            'Orthopedics',
-            'Orthopedics-Reconstructive',
-            'Radiologist',
-            'Pulmonology',
-            'Psychiatry',
-            'Urology',
-            'ObstetricsandGynecology',
-            'Surgery-Cardiovascular/Thoracic',
-            'Gastroenterology',
-            'Surgery-Vascular',
-            'Surgery-Neuro',
-            'PhysicalMedicineandRehabilitation',
-            'Oncology',
-            'Pediatrics',
-            'Neurology',
-            'Hematology/Oncology',
-            'Pediatrics-Endocrinology',
-            'Otolaryngology',
-            np.nan]
-    data[column_name] = np.where(data[column_name].isin(common_categories), data[column_name], 'Other')
-    data[column_name] = data[column_name].replace("nan", np.nan)
-
-
-
-
-
     #check vaccination status
     column_name = "complete_vaccination_status"
     data[column_name] = data[column_name].astype(str)
@@ -455,7 +408,7 @@ def predict():
 
         prediction = "Yes" if  (proba > threshold) else "No"
 
-        response = {'prediction': prediction, 'admission_id': _id}
+        response = {'readmitted': prediction}
 
         try:
             p.save()
