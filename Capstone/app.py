@@ -67,6 +67,7 @@ app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
 valid_columns = {
+        "admission_id",
         "patient_id",
         "race",
         "gender",
@@ -104,7 +105,6 @@ valid_columns = {
 
 
 def check_request(request):
-    print(request)
     """
         Validates that our request is well formatted
         
@@ -112,12 +112,30 @@ def check_request(request):
         - assertion value: True if request is ok, False otherwise
         - error message: empty if request is ok, False otherwise
     """
-    
+
     if "admission_id" not in request:
         error = "Field `admission_id` missing from request: {}".format(request)
         return False, error
+
+    elif (not isinstance(request["admission_id"], float)) and (not isinstance(request["admission_id"], int)):
+        try:
+            request["admission_id"]=float(request["admission_id"])
+        except:
+            error = "admission_id has to be integer"
+            return False, error
+
     
+    if np.isnan(request["admission_id"]):
+        error = "Value of admission_id is required"
+        return False, error
+
+    elif request["admission_id"]%1!=0:
+        error = "admission_id has to be integer"
+        return False, error
+
+    elif request["admission_id"]%1==0:  request["admission_id"] = int(request["admission_id"])
     return True, ""
+
 
 def check_valid_column(observation):
     """
@@ -198,7 +216,7 @@ def prepare_data(data, columns):
 
     #clean gender data
     data.gender = data.gender.astype(str)
-    data.gener = data.gender.str.capitalize()
+    data.gender = data.gender.str.capitalize()
     data.gender.replace("Unknown/invalid", np.nan, inplace=True)
 
     column_name = "gender"
@@ -212,48 +230,54 @@ def prepare_data(data, columns):
     allowed_categories = ['[50-60)', '[80-90)', '[60-70)', '[70-80)', '[40-50)', '[30-40)',
         '[90-100)', '[20-30)', '[10-20)', '[0-10)']
     check_categorical_data(data, column_name, allowed_categories)
+    #code age groups as integers
+    data["age_as_int"] = data.age.replace(['[50-60)', '[80-90)', '[60-70)', '[70-80)', '[40-50)', '[30-40)',
+    '[90-100)', '[20-30)', '[10-20)', '[0-10)'], [50, 80, 60, 70, 40, 30, 90, 20, 10, 0])
 
 
-
-    #clean admission_type_code 
-    data.admission_type_code = data.admission_type_code.replace([5., 6., 8.], np.nan)
+    #clean admission_type_code
     column_name = "admission_type_code"
-    allowed_categories = [1., 2., 3., 4., 5., 6., 7., 8.]
-    check_categorical_data(data, column_name, allowed_categories)
-    #keep only common values for admission_type_code, set others as "Other"
-    common_categories = [1.0, 3.0, 2.0, np.nan]
-    data[column_name] = np.where(data[column_name].isin(common_categories), data[column_name], 'Other')
-    data[column_name] = data[column_name].astype(str)
-    data[column_name] = data[column_name].replace("nan", np.nan)
+    try:
+        data.admission_type_code = data.admission_type_code.astype(float)
+        data.admission_type_code = data.admission_type_code.replace([5., 6., 8.], np.nan)
+        allowed_categories = [1., 2., 3., 4., 5., 6., 7., 8.]
+        check_categorical_data(data, column_name, allowed_categories)
+        #keep only common values for admission_type_code, set others as "Other"
+        common_categories = [1.0, 3.0, 2.0, np.nan]
+        data[column_name] = np.where(data[column_name].isin(common_categories), data[column_name], 'Other')
+        data[column_name] = data[column_name].astype(str)
+        data[column_name] = data[column_name].replace("nan", np.nan)
+    except: data.loc[0, column_name]=np.nan
 
 
     #discharge_disposition_code
-    data.discharge_disposition_code = data.discharge_disposition_code.replace([18., 25., 26.], np.nan)
     column_name = "discharge_disposition_code"
-    allowed_categories = list(np.arange(1.0, 30.0))
-    check_categorical_data(data, column_name, allowed_categories)
-    #keep only common values for dischage_disposition_code, set others as "Other"
-    
-    common_categories = [1.0, 3.0, 6.0, 2.0, 22.0, 5.0, 4.0, 7.0, 23.0, 28.0, 11.0, 13.0, 14.0, 19.0, 20.0, 21.0, np.nan]
-    data[column_name] = np.where(data[column_name].isin(common_categories), data[column_name], 'Other')
-    data[column_name] = data[column_name].astype(str)
-    data[column_name] = data[column_name].replace("nan", np.nan)
+    try:
+        data.discharge_disposition_code = data.discharge_disposition_code.astype(float)
+        data.discharge_disposition_code = data.discharge_disposition_code.replace([18., 25., 26.], np.nan)
+        allowed_categories = list(np.arange(1.0, 30.0))
+        check_categorical_data(data, column_name, allowed_categories)
+        #keep only common values for dischage_disposition_code, set others as "Other"
+        common_categories = [1.0, 3.0, 6.0, 2.0, 22.0, 5.0, 4.0, 7.0, 23.0, 28.0, 11.0, 13.0, 14.0, 19.0, 20.0, 21.0, np.nan]
+        data[column_name] = np.where(data[column_name].isin(common_categories), data[column_name], 'Other')
+        data[column_name] = data[column_name].astype(str)
+        data[column_name] = data[column_name].replace("nan", np.nan)
+    except: data.loc[0, column_name]=np.nan
 
 
     #admission_source_code
     column_name = "admission_source_code"
-    allowed_categories = list(np.arange(1, 27))
-    check_categorical_data(data, column_name, allowed_categories)
-
-    data.admission_source_code = data.admission_source_code.replace([9, 15, 17, 20, 21], np.nan)
-    #keep only common values for admission_source_code, set others as "Other"
-    common_categories = [7.0, 1.0, 4.0, 6.0, 2.0, 5.0, 3.0, np.nan]
-    data[column_name] = np.where(data[column_name].isin(common_categories), data[column_name], 'Other')
-    data[column_name] = data[column_name].astype(str)
-    data[column_name] = data[column_name].replace("nan", np.nan)
-
-
-
+    try: 
+        data.admission_source_code = data.admission_source_code.astype(float)
+        allowed_categories = list(np.arange(1, 27))
+        check_categorical_data(data, column_name, allowed_categories)
+        data.admission_source_code = data.admission_source_code.replace([9.0, 15.0, 17.0, 20.0, 21.0], np.nan)
+        #keep only common values for admission_source_code, set others as "Other"
+        common_categories = [7.0, 1.0, 4.0, 6.0, 2.0, 5.0, 3.0, np.nan]
+        data[column_name] = np.where(data[column_name].isin(common_categories), data[column_name], 'Other')
+        data[column_name] = data[column_name].astype(str)
+        data[column_name] = data[column_name].replace("nan", np.nan)
+    except: data.loc[0, column_name]=np.nan
 
 
     #check vaccination status
@@ -264,23 +288,45 @@ def prepare_data(data, columns):
     check_categorical_data(data, column_name, allowed_categories)
 
 
-
     #check bools
     for column in ["has_prosthesis", "blood_transfusion"]:
-        if not isinstance(data[column][0], bool): data[column][0]=np.nan
+        if not isinstance(data[column][0], bool):
+            if data[column][0] == "True": data.loc[0, column] = True
+            else: 
+                try:
+                    data[column] = data[column].astype(float)
+                    if data[column][0] == 1: data.loc[0, column] = True
+                    else: data.loc[0, column] = False
+                except: data.loc[0, column] = False
 
 
     #check floats:
-    for column in ["num_lab_procedures","num_medications", "hemoglobin_level"]:
-        if not isinstance(data[column][0], float): 
-            if not isinstance(data[column][0], int): data[column][0]=np.nan
+    for column in ["hemoglobin_level"]:
+        try: data[column] = data[column].astype(float)
+        except: data.loc[0, column]=np.nan
+  
 
 
     #check integers:
-    for column in ["time_in_hospital", "num_procedures", "number_outpatient", "number_emergency", "number_inpatient", "number_diagnoses"]:
-        if not isinstance(data[column][0], int): data[column][0]=np.nan
+    for column in ["num_lab_procedures","num_medications", "time_in_hospital", "num_procedures", "number_outpatient", "number_emergency", "number_inpatient", "number_diagnoses"]:
+        if not isinstance(data[column][0], int):
+            try:
+                data[column] = data[column].astype(float)
+                if data[column][0]%1==0:  data.loc[0, column]==int(data[column][0])
+                else: data.loc[0, column]=np.nan
+            except: data.loc[0, column]=np.nan
 
- 
+
+    #check values of numerical features:
+    for column in ["num_lab_procedures", "num_medications", "num_procedures", "number_outpatient", "number_emergency", "number_inpatient", "number_diagnoses"]:
+        if (data[column][0]>1000) or (data[column][0]<0): data.loc[0, column]=np.nan
+    for column in ["time_in_hospital"]:
+        if (data[column][0]>40000) or (data[column][0]<0): data.loc[0, column]=np.nan
+    for column in ["hemoglobin_level"]:
+        if (data[column][0]>100) or (data[column][0]<0): data.loc[0, column]=np.nan
+
+    
+
     #simplify diagnosis codes
     diag_columns = ['diag_1','diag_2','diag_3']
     for col in diag_columns:
@@ -291,17 +337,12 @@ def prepare_data(data, columns):
         except: data[f"{col}_simplified"] = np.nan
 
 
-
     #max_glu_serum
     column_name = "max_glu_serum"
     data[column_name] = data[column_name].astype(str)
     data[column_name] = data[column_name].str.capitalize()
-
     allowed_categories = ['None', '>300', '>200', 'Norm']
     check_categorical_data(data, column_name, allowed_categories)
-
-
-
 
 
     #A1Cresult
@@ -346,14 +387,6 @@ def prepare_data(data, columns):
 
 
 
-    #code age groups as integers
-    data["age_as_int"] = data.age.replace(['[50-60)', '[80-90)', '[60-70)', '[70-80)', '[40-50)', '[30-40)',
-    '[90-100)', '[20-30)', '[10-20)', '[0-10)'], [50, 80, 60, 70, 40, 30, 90, 20, 10, 0])
-
-    
-    
-
-
     
     return data[columns]
 
@@ -365,34 +398,37 @@ def prepare_data(data, columns):
 @app.route('/predict', methods=['POST'])
 def predict():
     obs_dict = request.get_json()
+
+    
     print(obs_dict)
     
     try:
         request_ok, error = check_request(obs_dict)
         if not request_ok:
             response = {'error': error}
-            return jsonify(response)
+            return jsonify(response), 400
 
         _id = obs_dict['admission_id']
         observation = obs_dict
-        del observation['admission_id']
 
         columns_ok, error = check_valid_column(observation)
         if not columns_ok:
             response = {'error': error}
-            return jsonify(response)
+            return jsonify(response), 400
 
 
 
 
         obs = pd.DataFrame([observation], columns=valid_columns)
         
-        
+
+
         obs = prepare_data(obs, columns).astype(dtypes)
+
         
 
 
-        if obs.discharge_disposition_code[0] in ["11.0", "13.0", "14.0", "19.0", "20.0", "21.0"]:  #id patient is dead or in hospice predict False
+        if obs.discharge_disposition_code[0] in ["11.0", "13.0", "14.0", "19.0", "20.0", "21.0"]:  #if patient is dead or in hospice predict False
             proba = 0
 
         else:
@@ -408,31 +444,41 @@ def predict():
 
         prediction = "Yes" if  (proba > threshold) else "No"
 
+        #response = obs.to_dict()
         response = {'readmitted': prediction}
 
         try:
             p.save()
+            return jsonify(response)
 
         except IntegrityError:
             error_msg = "ERROR: Admission ID: '{}' already exists".format(_id)
             response["error"] = error_msg
             DB.rollback()
+            return jsonify(response), 400
 
         except Exception as e:
             DB.rollback()
-            return jsonify({'error': str(e)})
+            return jsonify({'error': str(e)}), 500
         
-        return jsonify(response)
+        
 
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/update', methods=['POST'])
 def update():
     obs = request.get_json()
+    print(obs)
     
     try:
+        request_ok, error = check_request(obs)
+        if not request_ok:
+            response = {'error': error}
+            return jsonify(response), 400
+        #if obs["admission_id"]%1==0:  obs["admission_id"] = int(obs["admission_id"])
+
         p = Prediction.get(Prediction.observation_id == obs['admission_id'])
         if obs['readmitted'] in ["Yes", "No"]:
             p.true_class = True if obs['readmitted'] == "Yes" else False
@@ -444,16 +490,16 @@ def update():
             })
         else: 
             DB.rollback()
-            return jsonify({'error': "value of true label can be either Yes or No"})
+            return jsonify({'error': "value of true label can be either Yes or No"}), 400
             
     except Prediction.DoesNotExist:
-        error_msg = 'Admission ID: "{}" does not exist'.format(obs['admission_id'])
+        error_msg = f'Admission ID: {obs["admission_id"]} does not exist'
         DB.rollback()
+        return jsonify({'error': error_msg}), 400
 
-        return jsonify({'error': error_msg})
     except Exception as e:
         DB.rollback()
-        return jsonify({'error': str(e)})
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/list-db-contents')
