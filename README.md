@@ -1,9 +1,12 @@
-## Workspace for Lisbon Data Science Starters Academy
+## Workspace for Lisbon Data Science Starters Academy that I attended from July 2021 to April 2022
 
 
-A course providing an introduction to Data Science through the combination of Bootcamp, Hackathons, and a Capstone project 
+A course provides an introduction to Data Science through the combination of Bootcamp, Hackathons, and a Capstone project 
+
 Bootcamp: Data Visualisation, Statistics, Data Diagnostics, Data cleaning, Regression, Classification, Model Validation, Feature Engineering, Hyperparameter Tuning
+
 Hackathons: Binary Classification, Data Wrangling, Time Series, Text Classification, Recommender Systems, Data Science in the real world
+
 
 Capstone Project: analysis and prediction of wrongful hospital discharges using real-world data
 - Analyzed data of around 80 000 hospital discharges to identify potential discrimination based on age, gender, race, and insurance status of the patients
